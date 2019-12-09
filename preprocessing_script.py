@@ -6,19 +6,20 @@ import ntpath
 import numpy as np
 import codecs
 import shutil
+import pandas as pd
 
 def main():
 
     # FIRST STEPS
     # Improvement: download directly from website -> TCGA tools
-    src_path = r"C:\Users\Sherry Wang\Documents\GitHub\CancerSubtypeClassification\unprocessed_data\gdc_download_20191206_062707.563269.tar.gz"
-    dest_path = r"C:\Users\Sherry Wang\Documents\GitHub\CancerSubtypeClassification\unprocessed_data"
-    extractTarGZ(src_path, dest_path)
+    # src_path = r"C:\Users\Sherry Wang\Documents\GitHub\CancerSubtypeClassification\unprocessed_data\gdc_download_20191206_062707.563269.tar.gz"
+    # dest_path = r"C:\Users\Sherry Wang\Documents\GitHub\CancerSubtypeClassification\unprocessed_data"
+    # extractTarGZ(src_path, dest_path)
     # newDir = r"C:\Users\Sherry Wang\Documents\GitHub\CancerSubtypeClassification\data"
     # moveFiles(dest_path, newDir)
-    #TODO REMOVE ANNOTATIONS file^ ?
-    fname = r"C:\Users\Sherry Wang\Documents\GitHub\CancerSubtypeClassification\data"
-    # p = createDataset(fname)
+    # TODO REMOVE ANNOTATIONS file^ ?
+    path = r"C:\Users\Sherry Wang\Documents\GitHub\CancerSubtypeClassification\unprocessed_data"
+    x, y = createDataset(path)
     
 
 # extract zipped folder containing all files from TCGA
@@ -41,49 +42,62 @@ def createDataset(path):
     sample = []
     data = []
     # variables for verification
-    header = []
+    # header = []
 
     ################################################################################################
-    # files_uuids = []
-    # genes_in_samples_header = []
-    # # move manifest file over to data folder
+    files_uuids = []
+    gene_headers = []
+    # move manifest file over to data folder
     # manifest_path = dir + "//MANIFEST.txt"
     
-    # # get all subdirectories of dir
-    # folders = [x[0] for x in os.walk(dir)]
-    # count = 0
-    # for x in folders:
-    #     count += 1
-    #     # to ensure the base directory is not visited
-    #     if count == 1:
-    #         continue
-    #     # get all the files within the subdirectory (includes gene quantification file and annotations)
-    #     dirs = os.listdir(x)
-    #     # print(dirs)
-    #     # move over all gene quantification files within subdirectories to one directory
-    #     for fname in dirs:
-
-    #         if (fname == "annotation.txt"):
-    #             continue
+    # get all subdirectories of dir
+    folders = [x[0] for x in os.walk(path)]
+    count = 0
+    for x in folders:
+        count += 1
+        # to ensure the base directory is not visited
+        if count == 1:
+            continue
+        # get all the files within the subdirectory (includes gene quantification file and annotations)
+        dirs = os.listdir(x)
+        print(dirs)
+        # move over all gene quantification files within subdirectories to one directory
+        for fname in dirs:
+            print(fname)
+            if (fname == "annotations.txt"):
+                continue
             
-    #         # save file containing gene quantification data
-    #         fpath =  x+ '\\' + fname
-    #         files_uuids.append(x)
-    #         with gzip.open(fpath, 'r') as f:
-    #             sample = []
-    #             for line in f:
-    #                 l = line.decode('utf-8')
-    #                 sample.append(l.split('\t'))
-    #             # print(sample)
-    #             if (count == 2):
-    #                 genes_in_samples_header = [x[0] for x in sample]
-    #             sample = [x[1].replace('\n','') for x in sample]
-    #             # # for verification purposes
-    #             # genes = [x[0] for x in arr]
-    #             # isSame = checkGenesSame(header, genes)
-    #             # if (!isSame):
-    #             #     continue              
-    #         data.append(sample)
+            # save file containing gene quantification data
+            fpath =  x+ '\\' + fname
+            print(fpath)
+            print("DIRNAME")
+            print(os.path.basename(x))
+            files_uuids.append([os.path.basename(x)])
+
+            with gzip.open(fpath, 'r') as f:
+                sample = []
+                for line in f:
+                    l = line.decode('utf-8')
+                    sample.append(l.split('\t'))
+                # print(sample)
+                if (count == 2):
+                    gene_headers = [x[0] for x in sample]
+                sample = [x[1].replace('\n','') for x in sample]
+                # # for verification purposes
+                # genes = [x[0] for x in arr]
+                # isSame = checkGenesSame(header, genes)
+                # if (!isSame):
+                #     continue              
+            data.append(sample)
+    
+    files_uuids = pd.DataFrame(files_uuids, columns=['file_id'])
+    subtype_data = pd.read_csv('gbm_subtype_data.csv')
+    merged_data = pd.merge(files_uuids, subtype_data, on="file_id")
+    label = merged_data['subtype'].to_numpy()
+    print(data)
+    print(label)
+    return data, label
+
             
 
 
@@ -91,37 +105,37 @@ def createDataset(path):
 
     #####################################################################################
     
-    filesList = os.listdir(path)
-    # print(filesList)
-    count = 0
-    for x in filesList:
-        # skip over files that don't actually provide data
-        if (x == "MANIFEST.txt" or x == "annotations.txt"):
-            continue
-        count += 1
-        # to ensure the base directory is not visited
-        if count == 1:
-            continue
+    # filesList = os.listdir(path)
+    # # print(filesList)
+    # count = 0
+    # for x in filesList:
+    #     # skip over files that don't actually provide data
+    #     if (x == "MANIFEST.txt" or x == "annotations.txt"):
+    #         continue
+    #     count += 1
+    #     # to ensure the base directory is not visited
+    #     if count == 1:
+    #         continue
 
-        fpath = path + "//"+ x
-        with gzip.open(fpath, 'r') as f:
-            sample = []
-            for line in f:
-                l = line.decode('utf-8')
-                sample.append(l.split('\t'))
-            # print(sample)
-            # add first header to dataset
-            if count == 2:
-                header = [x[0] for x in sample]
-                data.append(header)                
-            sample = [x[1].replace('\n','') for x in sample]
-            # # for verification purposes
-            # genes = [x[0] for x in arr]
-            # isSame = checkGenesSame(header, genes)
-            # if (!isSame):
-            #     continue              
-        data.append(sample)
-    # print(data)
+    #     fpath = path + "//"+ x
+    #     with gzip.open(fpath, 'r') as f:
+    #         sample = []
+    #         for line in f:
+    #             l = line.decode('utf-8')
+    #             sample.append(l.split('\t'))
+    #         # print(sample)
+    #         # add first header to dataset
+    #         if count == 2:
+    #             header = [x[0] for x in sample]
+    #             data.append(header)                
+    #         sample = [x[1].replace('\n','') for x in sample]
+    #         # # for verification purposes
+    #         # genes = [x[0] for x in arr]
+    #         # isSame = checkGenesSame(header, genes)
+    #         # if (!isSame):
+    #         #     continue              
+    #     data.append(sample)
+    # # print(data)
     return np.array(data)
 
 def logarithm_transform_filter(dataset):
